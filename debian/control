@@ -1,16 +1,19 @@
 Source: golang-github-googleapis-gax-go
-Maintainer: Debian Go Packaging Team <team+pkg-go@tracker.debian.org>
-Uploaders: Tim Potter <tpot@hpe.com>,
-           Anthony Fok <foka@debian.org>
 Section: golang
-Testsuite: autopkgtest-pkg-go
 Priority: optional
-Build-Depends: debhelper-compat (= 13),
-               dh-golang,
-               golang-any,
-               golang-golang-x-net-dev,
-               golang-google-grpc-dev
-Standards-Version: 4.6.0
+Maintainer: Debian Go Packaging Team <team+pkg-go@tracker.debian.org>
+Uploaders:
+ Tim Potter <tpot@hpe.com>,
+ Anthony Fok <foka@debian.org>,
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-sequence-golang,
+ golang-any,
+ golang-golang-x-net-dev,
+ golang-google-grpc-dev,
+Testsuite: autopkgtest-pkg-go
+Standards-Version: 4.7.0
 Vcs-Browser: https://salsa.debian.org/go-team/packages/golang-github-googleapis-gax-go
 Vcs-Git: https://salsa.debian.org/go-team/packages/golang-github-googleapis-gax-go.git
 Homepage: https://github.com/googleapis/gax-go
@@ -19,10 +22,10 @@ XS-Go-Import-Path: github.com/googleapis/gax-go
 Package: golang-github-googleapis-gax-go-dev
 Architecture: all
 Multi-Arch: foreign
-Depends: golang-golang-x-net-dev,
-         golang-google-grpc-dev,
-         ${misc:Depends},
-         ${shlibs:Depends}
+Depends:
+ golang-golang-x-net-dev,
+ golang-google-grpc-dev,
+ ${misc:Depends},
 Description: Google API Extensions for Go
  Google API Extensions for Go (gax-go) is a set of modules which aids
  the development of APIs for clients and servers based on gRPC and Google

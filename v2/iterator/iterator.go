@@ -1,4 +1,4 @@
-// Copyright 2016, Google Inc.
+// Copyright 2024, Google Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,15 +27,37 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Package gax contains a set of modules which aid the development of APIs
-// for clients and servers based on gRPC and Google API conventions.
+//go:build go1.23
+
+// Package iterator contains helper for working with iterators. It is meant for
+// internal use only by the Go Client Libraries.
+package iterator
+
+import (
+	"iter"
+
+	otherit "google.golang.org/api/iterator"
+)
+
+// RangeAdapter transforms client iterator type into a [iter.Seq2] that can
+// be used with Go's range expressions.
 //
-// Application code will rarely need to use this library directly.
-// However, code generated automatically from API definition files can use it
-// to simplify code generation and to provide more convenient and idiomatic API surfaces.
-package gax
-
-import "github.com/googleapis/gax-go/v2/internal"
-
-// Version specifies the gax-go version being used.
-const Version = internal.Version
+// This is for internal use only.
+func RangeAdapter[T any](next func() (T, error)) iter.Seq2[T, error] {
+	var err error
+	return func(yield func(T, error) bool) {
+		for {
+			if err != nil {
+				return
+			}
+			var resp T
+			resp, err = next()
+			if err == otherit.Done {
+				return
+			}
+			if !yield(resp, err) {
+				return
+			}
+		}
+	}
+}

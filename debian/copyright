@@ -1,19 +1,22 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: gax-go
 Source: https://github.com/googleapis/gax-go
+Upstream-Name: gax-go
 
-Files: *
-Copyright: 2016 Google APIs
+Files:
+ *
+Copyright:
+ 2016 Google APIs
 License: BSD-3-clause
 
-Files: debian/*
-Copyright: 2016 Tim Potter <tpot@hpe.com>
+Files:
+ debian/*
+Copyright:
+ 2016 Tim Potter <tpot@hpe.com>
+ 2024 Sipwise GmbH, Austria
 License: BSD-3-clause
 Comment: Debian packaging is licensed under the same terms as upstream
 
 License: BSD-3-clause
- Copyright 2016, Google Inc.
- All rights reserved.
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are
  met:

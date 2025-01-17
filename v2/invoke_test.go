@@ -34,6 +34,13 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/googleapis/gax-go/v2/apierror"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var canceledContext context.Context
@@ -67,6 +74,48 @@ func TestInvokeSuccess(t *testing.T) {
 	if sp != 0 {
 		t.Errorf("slept %d times, should not have slept since the call succeeded", int(sp))
 	}
+}
+
+func TestInvokeCertificateError(t *testing.T) {
+	stat := status.New(codes.Unavailable, "x509: certificate signed by unknown authority")
+	apiErr := stat.Err()
+	apiCall := func(context.Context, CallSettings) error { return apiErr }
+	var sp recordSleeper
+	err := invoke(context.Background(), apiCall, CallSettings{}, sp.sleep)
+	if diff := cmp.Diff(err, apiErr, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("got(-), want(+): \n%s", diff)
+	}
+}
+
+func TestInvokeAPIError(t *testing.T) {
+	qf := &errdetails.QuotaFailure{
+		Violations: []*errdetails.QuotaFailure_Violation{{Subject: "Foo", Description: "Bar"}},
+	}
+	stat, _ := status.New(codes.ResourceExhausted, "Per user quota has been exhausted").WithDetails(qf)
+	apiErr, _ := apierror.FromError(stat.Err())
+	apiCall := func(context.Context, CallSettings) error { return stat.Err() }
+	var sp recordSleeper
+	err := invoke(context.Background(), apiCall, CallSettings{}, sp.sleep)
+	if diff := cmp.Diff(err.Error(), apiErr.Error()); diff != "" {
+		t.Errorf("got(-), want(+): \n%s", diff)
+	}
+	if sp != 0 {
+		t.Errorf("slept %d times, should not have slept since the call succeeded", int(sp))
+	}
+}
+
+func TestInvokeCtxError(t *testing.T) {
+	ctxErr := context.DeadlineExceeded
+	apiCall := func(context.Context, CallSettings) error { return ctxErr }
+	var sp recordSleeper
+	err := invoke(context.Background(), apiCall, CallSettings{}, sp.sleep)
+	if err != ctxErr {
+		t.Errorf("found error %s, want %s", err, ctxErr)
+	}
+	if sp != 0 {
+		t.Errorf("slept %d times, should not have slept since the call succeeded", int(sp))
+	}
+
 }
 
 func TestInvokeNoRetry(t *testing.T) {
@@ -151,5 +200,67 @@ func TestInvokeRetryTimeout(t *testing.T) {
 
 	if err != context.Canceled {
 		t.Errorf("found error %s, want %s", err, context.Canceled)
+	}
+}
+
+func TestInvokeWithTimeout(t *testing.T) {
+	// Dummy APICall that sleeps for the given amount of time. This simulates an
+	// APICall executing, allowing us to verify which deadline was respected,
+	// that which is already set on the Context, or the one calculated using the
+	// WithTimeout option's value.
+	sleepingCall := func(sleep time.Duration) APICall {
+		return func(ctx context.Context, _ CallSettings) error {
+			time.Sleep(sleep)
+			return ctx.Err()
+		}
+	}
+
+	bg := context.Background()
+	preset, pcc := context.WithTimeout(bg, 10*time.Millisecond)
+	defer pcc()
+
+	for _, tst := range []struct {
+		name    string
+		timeout time.Duration
+		sleep   time.Duration
+		ctx     context.Context
+		want    error
+	}{
+		{
+			name:    "success",
+			timeout: 10 * time.Millisecond,
+			sleep:   1 * time.Millisecond,
+			ctx:     bg,
+			want:    nil,
+		},
+		{
+			name:    "respect_context_deadline",
+			timeout: 1 * time.Millisecond,
+			sleep:   3 * time.Millisecond,
+			ctx:     preset,
+			want:    nil,
+		},
+		{
+			name:    "with_timeout_deadline_exceeded",
+			timeout: 1 * time.Millisecond,
+			sleep:   3 * time.Millisecond,
+			ctx:     bg,
+			want:    context.DeadlineExceeded,
+		},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			// Recording sleep isn't really necessary since there is
+			// no retry here, but we need a sleeper so might as well.
+			var sp recordSleeper
+			var settings CallSettings
+
+			WithTimeout(tst.timeout).Resolve(&settings)
+
+			err := invoke(tst.ctx, sleepingCall(tst.sleep), settings, sp.sleep)
+
+			if err != tst.want {
+				t.Errorf("found error %v, want %v", err, tst.want)
+			}
+		})
 	}
 }
