@@ -30,9 +30,12 @@
 package gax
 
 import (
+	"context"
+	"net/http"
 	"testing"
 	"time"
 
+	"google.golang.org/api/googleapi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -84,5 +87,56 @@ func TestOnCodes(t *testing.T) {
 		if _, retry := b.Retry(apiErr); retry != tst.retry {
 			t.Errorf("retriable codes: %v, error: %s, retry: %t, want %t", tst.c, apiErr, retry, tst.retry)
 		}
+	}
+}
+
+func TestOnErrorFunc(t *testing.T) {
+	// Use errors.Is if on go 1.13 or higher.
+	is := func(err, target error) bool {
+		return err == target
+	}
+	tests := []struct {
+		e           error
+		shouldRetry func(err error) bool
+		retry       bool
+	}{
+		{context.DeadlineExceeded, func(err error) bool { return false }, false},
+		{context.DeadlineExceeded, func(err error) bool { return is(err, context.DeadlineExceeded) }, true},
+	}
+	for _, tst := range tests {
+		b := OnErrorFunc(Backoff{}, tst.shouldRetry)
+		if _, retry := b.Retry(tst.e); retry != tst.retry {
+			t.Errorf("retriable func: error: %s, retry: %t, want %t", tst.e, retry, tst.retry)
+		}
+	}
+}
+
+func TestOnHTTPCodes(t *testing.T) {
+	apiErr := &googleapi.Error{Code: http.StatusBadGateway}
+	tests := []struct {
+		c     []int
+		retry bool
+	}{
+		{nil, false},
+		{[]int{http.StatusConflict}, false},
+		{[]int{http.StatusConflict, http.StatusBadGateway}, true},
+		{[]int{http.StatusBadGateway}, true},
+	}
+	for _, tst := range tests {
+		b := OnHTTPCodes(Backoff{}, tst.c...)
+		if _, retry := b.Retry(apiErr); retry != tst.retry {
+			t.Errorf("retriable codes: %v, error: %s, retry: %t, want %t", tst.c, apiErr, retry, tst.retry)
+		}
+	}
+}
+
+func TestWithTimeout(t *testing.T) {
+	settings := CallSettings{}
+	to := 10 * time.Second
+
+	WithTimeout(to).Resolve(&settings)
+
+	if settings.timeout != to {
+		t.Errorf("got %v, want %v", settings.timeout, to)
 	}
 }

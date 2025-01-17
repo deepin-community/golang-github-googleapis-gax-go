@@ -1,3 +1,18 @@
+golang-github-googleapis-gax-go (2.13.0-1) unstable; urgency=medium
+
+  * Team upload.
+  * New upstream release.
+  * Update gbp configuration following Go Team new workflow.
+  * Wrap and sort -ast.
+  * Remove unused shlibs:Depends from Depends field.
+  * Switch to dh-sequence-golang from dh-golang and --with=golang.
+  * Set --builddirectory to _build.
+  * Add Rules-Requires-Root no.
+  * Switch to Standards-Version 4.7.0 (no change needed).
+  * Update copyright years.
+
+ -- Guillem Jover <gjover@sipwise.com>  Tue, 03 Sep 2024 20:09:40 +0200
+
 golang-github-googleapis-gax-go (2.0.5-4) unstable; urgency=medium
 
   [ Debian Janitor ]
